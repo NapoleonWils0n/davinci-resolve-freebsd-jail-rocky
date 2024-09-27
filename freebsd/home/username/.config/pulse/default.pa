@@ -1,0 +1,10 @@
+#!/usr/local/bin/pulseaudio -nF
+
+# include default.pa and override
+.include /usr/local/etc/pulse/default.pa
+
+# jail
+.ifexists module-esound-protocol-unix.so
+load-module module-esound-protocol-unix
+.endif
+load-module module-native-protocol-unix socket=/tmp/pulseaudio.socket

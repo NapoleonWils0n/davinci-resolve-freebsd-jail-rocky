@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Encoding=UTF-8
+Type=Application
+Name=DaVinci Resolve
+Exec=/usr/local/bin/resolve
+Icon=/usr/local/jails/linux/ubuntu/opt/resolve/graphics/DV_Resolve.png
+Terminal=false
+MimeType=application/x-resolveproj;
+StartupNotify=true
+Categories=AudioVideo

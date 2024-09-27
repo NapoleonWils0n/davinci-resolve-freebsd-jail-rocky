@@ -1,0 +1,8 @@
+[jail=7]
+add include $devfsrules_jail
+add path 'mixer*' unhide
+add path 'dsp*' unhide
+add path 'dri*' unhide
+add path 'drm*' unhide
+add path 'nvidia*' unhide
+add path 'speaker*' unhide

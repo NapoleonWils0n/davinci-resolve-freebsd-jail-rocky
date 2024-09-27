@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# resolve
+# Freebsd script to launch Davinci Resolve from a Linux Jail
+
+# start pulseaudio
+pulseaudio --start --daemonize 2>/dev/null
+
+# doas jexec into ubuntu and run the wrapper script to start resolve
+doas jexec ubuntu /usr/local/bin/wrapper-resolve \
+-d "DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}" \
+-u "${USER}"
