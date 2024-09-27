@@ -585,6 +585,20 @@ dnf groupupdate Multimedia
 dnf install zsh
 #+end_src
 
+*** dummy-uvm.so
+
+create the gpu directory inside config directory in the jail
+
+#+begin_src sh
+mkdir -p /usr/local/jails/linux/rocky/home/"${USER}"/.config/gpu
+#+end_src
+
+copy the dummy-uvm.so from this repository to the jail
+
+#+begin_src sh
+cp davinci-resolve-freebsd-jail-rocky/rocky/home/username/.config/gpu/dummy-uvm.so /usr/local/jails/linux/rocky/home/"${USER}"/.config/gpu
+#+end_src
+
 *** zsh shell config
 
 We need to set some enviormental variables in our shell config
