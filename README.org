@@ -1024,6 +1024,28 @@ sudo ./NVIDIA-Linux-x86_64-550.54.14.run --install-compat32-libs --no-nvidia-mod
 # Horizontal Rule
 -----
 
+*** Nvidia driver upgrade
+**** uninstall old driver
+
+#+begin_src sh
+sudo ./NVIDIA-Linux-x86_64-550.54.14.run --uninstall
+#+end_src
+
+**** install new driver
+
+chmod the Nvidia run file
+
+#+begin_src sh
+chmod +x NVIDIA-Linux-x86_64-550.120.run
+
+#+end_src
+
+Install the Nvidia driver
+
+#+begin_src sh
+sudo ./NVIDIA-Linux-x86_64-550.120.run --install-compat32-libs --no-nvidia-modprobe --no-backup --no-kernel-module --no-x-check --no-nouveau-check --no-cc-version-check --no-kernel-module-source --no-check-for-alternate-installs --install-libglvnd --skip-depmod --no-systemd
+#+end_src
+
 *** davinci resolve run
 
 unzip
