@@ -18,7 +18,7 @@ case "$OSTYPE" in
   ;;
   linux*)
   typeset -U PATH path
-  path=("/opt/resolve/bin" "$path[@]")
+  path=("/opt/resolve/bin" "/bin" "/usr/bin" "$path[@]")
   export PATH
 
   # XDG_RUNTIME_DIR
@@ -26,8 +26,6 @@ case "$OSTYPE" in
 
   # dummy-uvm.so for access to the gpu
   export LD_PRELOAD="${HOME}"/.config/gpu/dummy-uvm.so
-  export __NV_PRIME_RENDER_OFFLOAD=1
-  export __GLX_VENDOR_LIBRARY_NAME=nvidia
 
   # wayland - uncomment to use wayland
   #export WAYLAND_DISPLAY=wayland-0
@@ -35,7 +33,7 @@ case "$OSTYPE" in
   #export GDK_BACKEND=wayland
 
   # x11 - comment out to use wayland
-  export DISPLAY=unix:0
+  export DISPLAY=:0
   export QT_QPA_PLATFORM=xcb
   export GDK_BACKEND=x11
   ;;

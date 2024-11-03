@@ -672,7 +672,7 @@ case "$OSTYPE" in
   ;;
   linux*)
   typeset -U PATH path
-  path=("/opt/resolve/bin" "$path[@]")
+  path=("/opt/resolve/bin" "/bin" "/usr/bin" "$path[@]")
   export PATH
 
   # XDG_RUNTIME_DIR
@@ -680,8 +680,6 @@ case "$OSTYPE" in
 
   # dummy-uvm.so for access to the gpu
   export LD_PRELOAD="${HOME}"/.config/gpu/dummy-uvm.so
-  export __NV_PRIME_RENDER_OFFLOAD=1
-  export __GLX_VENDOR_LIBRARY_NAME=nvidia
 
   # wayland - uncomment to use wayland
   #export WAYLAND_DISPLAY=wayland-0
@@ -689,7 +687,7 @@ case "$OSTYPE" in
   #export GDK_BACKEND=wayland
 
   # x11 - comment out to use wayland
-  export DISPLAY=unix:0
+  export DISPLAY=:0
   export QT_QPA_PLATFORM=xcb
   export GDK_BACKEND=x11
   ;;
@@ -1241,82 +1239,143 @@ default-server = /tmp/pulseaudio.socket
 
 ** Davinci Resolve Desktop entry
 *** Freebsd
-**** resolve script
+**** wrapper-freebsd script
 
 Freebsd script to launch Davinci Resolve from a Linux Jail
 
-+ [[file:freebsd/usr/local/bin/resolve][resolve]]
++ [[file:freebsd/usr/local/bin/wrapper-freebsd][wrapper-freebsd]]
 
 Path to resolve in this repository
 
 #+begin_example
-davinci-resolve-freebsd-jail-rocky/freebsd/usr/local/bin/resolve
+davinci-resolve-freebsd-jail-rocky/freebsd/usr/local/bin/wrapper-freebsd
 #+end_example
 
-Copy the resolve script from the repository to the freebsd bin directory
+Copy the wrapper-freebsd script from the repository to the freebsd bin directory
 
 #+begin_src sh
-sudo cp davinci-resolve-freebsd-jail-rocky/freebsd/usr/local/bin/resolve /usr/local/bin
+sudo cp davinci-resolve-freebsd-jail-rocky/freebsd/usr/local/bin/wrapper-freebsd /usr/local/bin
 #+end_src
 
-+ resolve code
++ wrapper-freebsd code
   
 #+begin_src sh
 #!/bin/sh
 
-# resolve
-# Freebsd script to launch Davinci Resolve from a Linux Jail
+# wrapper-freebsd
 
-# start pulseaudio
+#===============================================================================
+# script usage
+#===============================================================================
+
+usage () {
+# if argument passed to function echo it
+[ -z "${1}" ] || echo "! ${1}"
+# display help
+echo "\
+# script usage
+$(basename "$0") -j jail -a application -p on
+-p on = enable audio on the freebsd host for the jail
+"
+exit 2
+}
+
+#===============================================================================
+# check the number of arguments passed to the script
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts check the options passed to the script
+#===============================================================================
+
+while getopts ':j:a:p:h' opt
+do
+  case ${opt} in
+     j) jail="${OPTARG}";;
+     a) app="${OPTARG}";;
+     p) audio="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+#===============================================================================
+# start audio if -p on option is specified
+#===============================================================================
+
+# default audio off
+audio_default="off"
+
+# start audio
+audio () {
 pulseaudio --start --daemonize 2>/dev/null
+}
 
-# doas jexec into ubuntu and run the wrapper script to start resolve
-doas jexec rocky /usr/local/bin/wrapper-resolve \
+# check if pulseaudio should be started
+case "${audio:=${audio_default}}" in
+    on) audio;;
+    off) echo 'off';;
+    ,*) usage;;
+esac
+
+
+#===============================================================================
+# doas jexec into the jail and run the wrapper script to start the application
+#===============================================================================
+
+doas jexec "${jail}" \
+/usr/local/bin/wrapper-jail \
+-u "${USER}" \
 -d "DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}" \
--u "${USER}"
+-a "${app}" \
+"$@"
 #+end_src
 
 # Horizontal Rule
 -----
 
 *** Rocky Linux
-**** wrapper-resolve
+**** wrapper-jail
 
-+ [[file:ubuntu/usr/local/bin/wrapper-resolve][wrapper-resolve]]
++ [[file:ubuntu/usr/local/bin/wrapper-jail][wrapper-jail]]
 
-Path to wrapper-resolve in this repository
+Path to wrapper-jail in this repository
 
 #+begin_example
-davinci-resolve-freebsd-jail-rocky/rocky/usr/local/bin/wrapper-resolve
+davinci-resolve-freebsd-jail-rocky/rocky/usr/local/bin/wrapper-jail
 #+end_example
 
 Copy the script to the jail
 
 #+begin_src sh
-sudo cp davinci-resolve-freebsd-jail-rocky/rocky/usr/local/bin/wrapper-resolve /usr/local/jails/linux/rocky/usr/local/bin
+sudo cp davinci-resolve-freebsd-jail-rocky/rocky/usr/local/bin/wrapper-jail /usr/local/jails/linux/rocky/usr/local/bin
 #+end_src
 
 Freebsd path to wrapper-resolve in the jail
 
 #+begin_example
-/usr/local/jails/rocky/usr/local/bin/wrapper-resolve
+/usr/local/jails/rocky/usr/local/bin/wrapper-jail
 #+end_example
 
 Path to wrapper-resolve in the jail
 
 #+begin_example
-/usr/local/bin/wrapper-resolve
+/usr/local/bin/wrapper-jail
 #+end_example
 
-+ wrapper-resolve code
++ wrapper-jail code
 
 #+begin_src sh
-#!/bin/bash
+#!/bin/sh
 
 #===============================================================================
-# wrapper-resolve
+# wrapper-jail
 #===============================================================================
-
 
 #===============================================================================
 # script usage
@@ -1343,11 +1402,12 @@ exit 2
 # getopts check the options passed to the script
 #===============================================================================
 
-while getopts ':u:d:h' opt
+while getopts ':u:d:a:h' opt
 do
   case ${opt} in
      u) username="${OPTARG}";;
      d) dbus="${OPTARG}";;
+     a) app="${OPTARG}";;
      h) usage;;
      \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
      :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
@@ -1357,10 +1417,10 @@ shift $((OPTIND-1))
 
 
 #===============================================================================
-# switch to our user in the jail and start resolve
+# switch to our user in the jail and start the application
 #===============================================================================
 
-su "${username}" -c "${dbus} /opt/resolve/bin/resolve" 2>/dev/null
+su "${username}" -c "${dbus} ${app} ${@}" 2>/dev/null
 #+end_src
 
 # Horizontal Rule
@@ -1392,7 +1452,7 @@ Version=1.0
 Encoding=UTF-8
 Type=Application
 Name=DaVinci Resolve
-Exec=/usr/local/bin/resolve-wrapper
+Exec=/usr/local/bin/wrapper-freebsd -j 'rocky' -a 'export __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia; resolve' -p 'on'
 Icon=/usr/local/jails/linux/rocky/opt/resolve/graphics/DV_Resolve.png
 Terminal=false
 MimeType=application/x-resolveproj;
