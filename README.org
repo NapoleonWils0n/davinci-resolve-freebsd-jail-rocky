@@ -67,27 +67,37 @@ Tree list of the DaVinci Resolve Freebsd git repository
 │   │       └── rocky.conf
 │   ├── home
 │   │   └── username
+│   │       ├── .config
+│   │       │   └── pulse
+│   │       │       ├── .config
+│   │       │       │   └── pulse
+│   │       │       └── default.pa
+│   │       └── .local
+│   │           └── share
+│   │               └── applications
+│   │                   └── davinci-resolve.desktop
 │   └── usr
 │       └── local
 │           ├── bin
-│           │   └── resolve
-│           ├── etc
-│           │   └── doas.conf
-│           └── share
-│               └── debootstrap
-│                   └── scripts
-│                       ├── lunar
-│                       └── mantic
+│           │   └── wrapper-freebsd
+│           └── etc
+│               └── doas.conf
 └── rocky
     ├── home
     │   └── username
+    │       ├── .config
+    │       │   ├── gpu
+    │       │   │   └── dummy-uvm.so
+    │       │   └── pulse
+    │       │       └── client.conf
+    │       ├── .zshenv
+    │       └── .zshrc
     └── usr
         └── local
             └── bin
                 └── wrapper-resolve
 
-21 directories, 10 files
-
+28 directories, 14 files
 #+end_example
 
 # Horizontal Rule
