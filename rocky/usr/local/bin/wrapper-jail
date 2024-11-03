@@ -1,9 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
 #===============================================================================
-# wrapper-resolve
+# wrapper-jail
 #===============================================================================
-
 
 #===============================================================================
 # script usage
@@ -30,11 +29,12 @@ exit 2
 # getopts check the options passed to the script
 #===============================================================================
 
-while getopts ':u:d:h' opt
+while getopts ':u:d:a:h' opt
 do
   case ${opt} in
      u) username="${OPTARG}";;
      d) dbus="${OPTARG}";;
+     a) app="${OPTARG}";;
      h) usage;;
      \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
      :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
@@ -44,7 +44,7 @@ shift $((OPTIND-1))
 
 
 #===============================================================================
-# switch to our user in the jail and start resolve
+# switch to our user in the jail and start the application
 #===============================================================================
 
-su "${username}" -c "${dbus} /opt/resolve/bin/resolve" 2>/dev/null
+su "${username}" -c "${dbus} ${app} ${@}" 2>/dev/null
