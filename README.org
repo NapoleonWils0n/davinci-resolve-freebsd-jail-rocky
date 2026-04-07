@@ -16,6 +16,8 @@ Video directory from the Freebsd host mounted inside the home directory in the j
 Opened using a Desktop entry on Freebsd 
 #+end_quote
 
+🎥 [[https://youtu.be/GMizsbwZNJE][Davinci Resolve on Freebsd using a Rocky Linux Jail with Cuda]]
+
 [[assets/screenshot/screenshot.png]]
 
 # Horizontal Rule
