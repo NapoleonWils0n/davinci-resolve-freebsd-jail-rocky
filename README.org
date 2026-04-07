@@ -447,10 +447,10 @@ fetch 'https://dl.rockylinux.org/pub/rocky/10/images/x86_64/Rocky-10-Container-B
 
 *** tar xz
 
-rocky 9
+rocky 10
 
 #+begin_src sh
-doas tar xvfp Rocky-9-Container-Base.latest.x86_64.tar.xz -C /usr/local/jails/linux/rocky
+doas tar xvfp Rocky-10-Container-Base.latest.x86_64.tar.xz -C /usr/local/jails/linux/rocky
 #+end_src
 
 *** resolv.conf
