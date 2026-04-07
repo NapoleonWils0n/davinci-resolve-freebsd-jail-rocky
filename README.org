@@ -2,7 +2,7 @@
 * DaVinci Resolve Freebsd
 ** Davinci Resolve install on Freebsd using an Rocky Linux Jail
 
-[[https://www.blackmagicdesign.com/uk/products/davinciresolve][DaVinci Resolve]] installed in a Rocky Linux 9 Jail on Freebsd
+[[https://www.blackmagicdesign.com/uk/products/davinciresolve][DaVinci Resolve]] installed in a Rocky Linux 10 Jail on Freebsd
 
 Features
 
@@ -16,12 +16,6 @@ Video directory from the Freebsd host mounted inside the home directory in the j
 Opened using a Desktop entry on Freebsd 
 #+end_quote
 
-Note: you may need to adjust the Render speed,
-which can be found in the Render page in the file tab 
-
-the default Render speed is set to maximum,
-you may need to drop the value down to 10 depending on the amount of ram on your system
-
 [[assets/screenshot/screenshot.png]]
 
 # Horizontal Rule
@@ -32,7 +26,7 @@ you may need to drop the value down to 10 depending on the amount of ram on your
 
 #+begin_quote
 16 GB of system memory. 32 GB when using Fusion. \\
-GPU: Discrete with at least 2GB VRAM, supporting OpenCL 1.2 or CUDA 11. 
+GPU: Discrete with at least 2GB VRAM, supporting CUDA 13.2. 
 #+end_quote
 
 # Horizontal Rule
@@ -87,7 +81,7 @@ Tree list of the DaVinci Resolve Freebsd git repository
     │   └── username
     │       ├── .config
     │       │   ├── gpu
-    │       │   │   └── dummy-uvm.so
+    │       │   │   └── uvm_ioctl_override.c
     │       │   └── pulse
     │       │       └── client.conf
     │       ├── .zshenv
@@ -122,7 +116,7 @@ nv-sglrun nvidia-smi output
 #+begin_example
 shim init
 +-----------------------------------------------------------------------------------------+
-| NVIDIA-SMI 550.54.14              Driver Version: 550.54.14      CUDA Version: 12.4     |
+| NVIDIA-SMI 595.58.03              Driver Version: 595.58.03      CUDA Version: 13.2     |
 |-----------------------------------------+------------------------+----------------------+
 #+end_example
 
@@ -445,10 +439,10 @@ proc            /proc                   procfs          rw      0       0
 ** Rocky Linux
 *** Rocky linux container base
 
-rocky 9 base 
+rocky 10 base 
 
 #+begin_src sh
-fetch 'https://dl.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-Container-Base.latest.x86_64.tar.xz'
+fetch 'https://dl.rockylinux.org/pub/rocky/10/images/x86_64/Rocky-10-Container-Base.latest.x86_64.tar.xz'
 #+end_src
 
 *** tar xz
@@ -603,10 +597,174 @@ create the gpu directory inside config directory in the jail
 mkdir -p /usr/local/jails/linux/rocky/home/"${USER}"/.config/gpu
 #+end_src
 
-copy the dummy-uvm.so from this repository to the jail
+copy the uvm_ioctl_override.c from this repository to the jail
 
 #+begin_src sh
-cp davinci-resolve-freebsd-jail-rocky/rocky/home/username/.config/gpu/dummy-uvm.so /usr/local/jails/linux/rocky/home/"${USER}"/.config/gpu
+cp davinci-resolve-freebsd-jail-rocky/rocky/home/username/.config/gpu/uvm_ioctl_override.c /usr/local/jails/linux/rocky/home/"${USER}"/.config/gpu
+#+end_src
+
+uvm_ioctl_override.c code
+
+#+begin_src c
+#define _GNU_SOURCE
+
+#include <assert.h>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <unistd.h>
+
+#define NV_UVM_INITIALIZE   0x30000001
+#define NV_UVM_DEINITIALIZE 0x30000002
+#define NV_ERR_NOT_SUPPORTED 0x56
+
+struct NvUvmInitParams
+{
+  uint64_t flags __attribute__((aligned(8)));
+  uint32_t status;
+};
+
+// ioctl interception - unchanged from shkhln's original
+
+int (*libc_ioctl)(int fd, unsigned long request, ...) = NULL;
+
+int ioctl(int fd, unsigned long request, ...) {
+  if (!libc_ioctl) libc_ioctl = dlsym(RTLD_NEXT, "ioctl");
+
+  va_list _args_;
+  va_start(_args_, request);
+  void* data = va_arg(_args_, void*);
+  va_end(_args_);
+
+  if (request == NV_UVM_INITIALIZE) {
+    struct NvUvmInitParams* params = (struct NvUvmInitParams*)data;
+    params->status = NV_ERR_NOT_SUPPORTED;
+    return 0;
+  }
+  if (request == NV_UVM_DEINITIALIZE) return 0;
+
+  return libc_ioctl(fd, request, data);
+}
+
+// path checks
+
+static int is_nvidia_uvm(const char* path) {
+  return path && strcmp("/dev/nvidia-uvm", path) == 0;
+}
+
+static int is_proc_task_comm(const char* path) {
+  if (!path) return 0;
+  if (strncmp(path, "/proc/self/task/", 16) != 0) return 0;
+  char* tail = strchr(path + 16, '/');
+  return (tail != NULL && strcmp(tail, "/comm") == 0);
+}
+
+// open() - the original hook, still needed as fallback
+
+int (*libc_open)(const char* path, int flags, ...) = NULL;
+
+int open(const char* path, int flags, ...) {
+  if (!libc_open) libc_open = dlsym(RTLD_NEXT, "open");
+
+  mode_t mode = 0;
+  va_list _args_;
+  va_start(_args_, flags);
+  if (flags & O_CREAT) mode = va_arg(_args_, int);
+  va_end(_args_);
+
+  if (is_nvidia_uvm(path) || is_proc_task_comm(path))
+    return libc_open("/dev/null", flags, mode);
+  return libc_open(path, flags, mode);
+}
+
+// open64()
+
+int (*libc_open64)(const char* path, int flags, ...) = NULL;
+
+int open64(const char* path, int flags, ...) {
+  if (!libc_open64) libc_open64 = dlsym(RTLD_NEXT, "open64");
+
+  mode_t mode = 0;
+  va_list _args_;
+  va_start(_args_, flags);
+  if (flags & O_CREAT) mode = va_arg(_args_, int);
+  va_end(_args_);
+
+  if (is_nvidia_uvm(path) || is_proc_task_comm(path))
+    return libc_open64("/dev/null", flags, mode);
+  return libc_open64(path, flags, mode);
+}
+
+// openat() - this is the important one, glibc 2.34+ uses this for everything
+
+int (*libc_openat)(int dirfd, const char* path, int flags, ...) = NULL;
+
+int openat(int dirfd, const char* path, int flags, ...) {
+  if (!libc_openat) libc_openat = dlsym(RTLD_NEXT, "openat");
+
+  mode_t mode = 0;
+  va_list _args_;
+  va_start(_args_, flags);
+  if (flags & O_CREAT) mode = va_arg(_args_, int);
+  va_end(_args_);
+
+  if (is_nvidia_uvm(path) || is_proc_task_comm(path))
+    return libc_openat(dirfd, "/dev/null", flags, mode);
+  return libc_openat(dirfd, path, flags, mode);
+}
+
+// openat64()
+
+int (*libc_openat64)(int dirfd, const char* path, int flags, ...) = NULL;
+
+int openat64(int dirfd, const char* path, int flags, ...) {
+  if (!libc_openat64) libc_openat64 = dlsym(RTLD_NEXT, "openat64");
+
+  mode_t mode = 0;
+  va_list _args_;
+  va_start(_args_, flags);
+  if (flags & O_CREAT) mode = va_arg(_args_, int);
+  va_end(_args_);
+
+  if (is_nvidia_uvm(path) || is_proc_task_comm(path))
+    return libc_openat64(dirfd, "/dev/null", flags, mode);
+  return libc_openat64(dirfd, path, flags, mode);
+}
+
+// fopen() - for /proc/self/task/*/comm writes on 570+ drivers
+
+FILE* (*libc_fopen)(const char* path, const char* mode) = NULL;
+
+FILE* fopen(const char* path, const char* mode) {
+  if (!libc_fopen) libc_fopen = dlsym(RTLD_NEXT, "fopen");
+  if (is_proc_task_comm(path)) return libc_fopen("/dev/null", mode);
+  return libc_fopen(path, mode);
+}
+
+FILE* (*libc_fopen64)(const char* path, const char* mode) = NULL;
+
+FILE* fopen64(const char* path, const char* mode) {
+  if (!libc_fopen64) libc_fopen64 = dlsym(RTLD_NEXT, "fopen64");
+  if (is_proc_task_comm(path)) return libc_fopen64("/dev/null", mode);
+  return libc_fopen64(path, mode);
+}
+#+end_src
+
+we now need to build the dummy-uvm.so
+
+inside the rocky jail change directory into the gpu directory
+
+#+begin_src sh
+cd /home/"${USER}"/.config/gpu/
+#+end_src
+
+build the dummy-uvm.so inside the rocky jail
+
+#+begin_src sh
+gcc -m64 -std=c99 -Wall -ldl -fPIC -shared -o dummy-uvm.so uvm_ioctl_override.c
 #+end_src
 
 *** zsh shell config
@@ -993,13 +1151,15 @@ the version must match exactly or it won't work
 
 [[https://www.nvidia.com/Download/Find.aspx?lang=en-us]]
 
-Download link for 535.146.02 
+Nvidia 595 driver
 
-[[https://www.nvidia.com/download/driverResults.aspx/216728/en-us/]]
+https://www.nvidia.com/download/driverResults.aspx/265870/en-us/
 
-Download link for 550.54.14
+download the driver with fetch
 
-[[https://www.nvidia.com/download/driverResults.aspx/218826/en-us/]]
+#+begin_src sh
+fetch 'https://us.download.nvidia.com/XFree86/Linux-x86_64/595.58.03/NVIDIA-Linux-x86_64-595.58.03.run'
+#+end_src
 
 # Horizontal Rule
 -----
@@ -1020,13 +1180,13 @@ which should be mounted in the jail, so you can cd to the video directory in the
 chmod the Nvidia run file
 
 #+begin_src sh
-chmod +x NVIDIA-Linux-x86_64-550.54.14.run
+chmod +x NVIDIA-Linux-x86_64-595.58.03
 #+end_src
 
 Install the Nvidia driver
 
 #+begin_src sh
-sudo ./NVIDIA-Linux-x86_64-550.54.14.run --install-compat32-libs --no-nvidia-modprobe --no-backup --no-kernel-module --no-x-check --no-nouveau-check --no-cc-version-check --no-kernel-module-source --no-check-for-alternate-installs --install-libglvnd --skip-depmod --no-systemd
+sudo ./NVIDIA-Linux-x86_64-595.58.03 --install-compat32-libs --no-nvidia-modprobe --no-backup --no-kernel-module --no-x-check --no-nouveau-check --no-cc-version-check --no-kernel-module-source --no-check-for-alternate-installs --install-libglvnd --skip-depmod --no-systemd
 #+end_src
 
 # Horizontal Rule
@@ -1036,22 +1196,26 @@ sudo ./NVIDIA-Linux-x86_64-550.54.14.run --install-compat32-libs --no-nvidia-mod
 **** uninstall old driver
 
 #+begin_src sh
-sudo ./NVIDIA-Linux-x86_64-550.54.14.run --uninstall
+sudo ./NVIDIA-Linux-x86_64-595.58.03 --uninstall
 #+end_src
 
 **** install new driver
 
 chmod the Nvidia run file
 
+replace VERSION with the version number
+
 #+begin_src sh
-chmod +x NVIDIA-Linux-x86_64-550.120.run
+chmod +x NVIDIA-Linux-x86_64-VERSION.run
 
 #+end_src
 
 Install the Nvidia driver
 
+replace VERSION with the version number
+
 #+begin_src sh
-sudo ./NVIDIA-Linux-x86_64-550.120.run --install-compat32-libs --no-nvidia-modprobe --no-backup --no-kernel-module --no-x-check --no-nouveau-check --no-cc-version-check --no-kernel-module-source --no-check-for-alternate-installs --install-libglvnd --skip-depmod --no-systemd
+sudo ./NVIDIA-Linux-x86_64-VERSION.run --install-compat32-libs --no-nvidia-modprobe --no-backup --no-kernel-module --no-x-check --no-nouveau-check --no-cc-version-check --no-kernel-module-source --no-check-for-alternate-installs --install-libglvnd --skip-depmod --no-systemd
 #+end_src
 
 *** davinci resolve run
