@@ -1220,14 +1220,20 @@ sudo ./NVIDIA-Linux-x86_64-VERSION.run --install-compat32-libs --no-nvidia-modpr
 
 *** davinci resolve run
 
+download the latest version of davinci resolve
+
+[[https://www.blackmagicdesign.com/uk/products/davinciresolve]]
+
+move the zip file into the rocky linux jail and unzip it
+
 unzip
 
 #+begin_src sh
-unzip DaVinci_Resolve_19.0.1_Linux.zip
+unzip DaVinci_Resolve_20.3.2_Linux.zip
 #+end_src
 
 #+begin_src sh
-sudo ./DaVinci_Resolve_19.0.1_Linux.run --appimage-extract
+sudo ./DaVinci_Resolve_20.3.2_Linux.run --appimage-extract
 #+end_src
 
 *** install missing packages
