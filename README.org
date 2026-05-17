@@ -575,7 +575,7 @@ This will allows the application using the gstreamer framework to play others re
 The following command will install the complements multimedia packages needed by gstreamer enabled applications:
 
 #+begin_src sh
-dnf groupupdate multimedia --setop="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin
+dnf groupupdate multimedia --setopt="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin
 #+end_src
 
 The following command will install the sound-and-video complement packages needed by some applications:
